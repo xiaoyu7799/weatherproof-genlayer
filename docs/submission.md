@@ -24,6 +24,10 @@ cannot be invented by one party.
   for any record, and share the explorer link.
 - Browser preview (clearly labelled, not on-chain) shows what the
   archive returns before you spend a wallet signature.
+- Experience: four languages (English, 中文, 日本語, 한국어), a
+  user-toggled ambient rain sound with a FINALIZED chime, an opening
+  splash, scroll-reveal motion, and mouse effects (cursor glow,
+  parallax, tilt) on desktop — with reduced-motion and touch fallbacks.
 
 ## How GenLayer is used (not decorative)
 

@@ -62,35 +62,11 @@ export async function ensureStudionet() {
   }
 }
 
-// GenLayer writes are signed through the official GenLayer MetaMask Snap.
-// This is the documented Studionet path in genlayer-js 1.1.8. If the Snap
-// cannot be installed in this browser, writes cannot be signed here —
-// reading existing attestations still works, and the error is shown
-// instead of silently falling back to a fake result.
-export async function connectWallet() {
-  const eth = window.ethereum
-  if (!eth) throw new Error('No wallet found. Install MetaMask, then try again.')
-  const accounts = await eth.request({ method: 'eth_requestAccounts' })
-  const address = accounts[0]
-  if (!address) throw new Error('No account selected in the wallet.')
-  await ensureStudionet()
-  const client = writeClient(address)
-  try {
-    await client.connect('studionet')
-  } catch (err) {
-    const msg = err?.message || String(err)
-    // wallet_getSnaps (-32601 / method not found) means this wallet is not
-    // a Snaps-capable MetaMask: e.g. a mobile wallet, another extension that
-    // took over window.ethereum, or an outdated MetaMask. Say so plainly
-    // instead of surfacing the raw method name.
-    if (/wallet_getSnaps|wallet_requestSnaps|32601|method not found/i.test(msg)) {
-      throw new Error('This wallet does not support MetaMask Snaps (wallet_getSnaps not found). GenLayer writes need desktop MetaMask with Snaps enabled: switch to desktop Chrome/Edge with the latest MetaMask extension, make sure no other wallet extension is taking over, refresh, and try again. Reading attestations below still works without a wallet.')
-    }
-    throw new Error('GenLayer Snap could not be installed in this wallet (' + msg + '). Writes need the Snap; reading attestations below still works.')
-  }
-  return { address, client }
-}
-
+// Current write path (see App.jsx): connectWalletAddress() for address +
+// chain, then client.connect('studionet') for the GenLayer Snap, falling
+// back to reviewerClient() for wallets without Snap support. There is
+// intentionally no single connectWallet() helper — the Snap-only version
+// was removed because its error text contradicted the fallback.
 export async function waitFinal(client, hash, onProgress) {
   onProgress && onProgress('submitted')
   const receipt = await client.waitForTransactionReceipt({

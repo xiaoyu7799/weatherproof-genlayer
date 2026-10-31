@@ -113,6 +113,16 @@ It never presents a test-account transaction as wallet-signed, and it
 never fakes a result. Reading existing attestations still works without
 any wallet.
 
+**Experience.** The site is designed to be browsed, not just used:
+four languages (English, 中文, 日本語, 한국어) switchable in the header
+and remembered; an ambient rain sound generated in the browser with the
+Web Audio API, off by default and only started by the user's toggle,
+with a short chime when a transaction reaches FINALIZED; an opening
+splash animation once per session (click anywhere to skip); content
+that pops in as you scroll; and mouse playfulness on fine pointers —
+a cursor glow, hero parallax, card tilt and magnetic buttons — all
+disabled for touch devices and reduced-motion users.
+
 ### Run it locally
 
 ```bash
