@@ -2,6 +2,9 @@
 
 **Was it really raining that day? Prove it, on-chain.**
 
+🌐 **Live site:** https://xiaoyu7799.github.io/weatherproof-genlayer/
+🔗 **Contract (Stable Studionet):** https://explorer-studio.genlayer.com/address/0x304ba2D879EaC48bB0030cB0A196499d34c15137
+
 WeatherProof creates a neutral, shareable record of past weather. Pick a place
 and a past date, and GenLayer validators independently fetch the same day
 from the Open-Meteo Archive and must agree on the verdict before it is
