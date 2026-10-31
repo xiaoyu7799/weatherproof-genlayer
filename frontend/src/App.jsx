@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import {
-  CITIES, CONTRACT_ADDRESS, CHAIN_ID, RPC_URL, PURPOSES, classify, connectWallet,
-  explorerAddress, explorerTx, parseRecord, readClient, sourceUrlFor, verdictLabel,
+  CITIES, CONTRACT_ADDRESS, CHAIN_ID, RPC_URL, PURPOSES, classify, connectWalletAddress,
+  explorerAddress, explorerTx, parseRecord, readClient, reviewerClient, sourceUrlFor, verdictLabel,
   waitFinal, writeClient,
 } from './genlayer.js'
 
@@ -59,6 +59,9 @@ export default function App() {
   const [purpose, setPurpose] = useState(PURPOSES[0])
   const [wallet, setWallet] = useState(null)
   const [client, setClient] = useState(null)
+  const [snapFailed, setSnapFailed] = useState(false)
+  const [walletMode, setWalletMode] = useState(null)
+  const [ephemeralAddress, setEphemeralAddress] = useState(null)
   const [status, setStatus] = useState('')
   const [error, setError] = useState('')
   const [tx, setTx] = useState(null)
@@ -101,11 +104,37 @@ export default function App() {
   }
 
   async function doConnect() {
-    setError('')
+    setError(''); setSnapFailed(false)
     try {
-      const { address, client } = await connectWallet()
-      setWallet(address); setClient(client); setStatus('Wallet connected on Stable Studionet.')
+      // Step 1: any injected wallet (MetaMask, OKX, Rabby, Coinbase, …)
+      // can connect for address + chain. Step 2: try the GenLayer Snap.
+      const address = await connectWalletAddress()
+      setWallet(address)
+      const client = writeClient(address)
+      try {
+        await client.connect('studionet')
+        setClient(client); setWalletMode('snap'); setStatus('Wallet connected on Stable Studionet (GenLayer Snap ready).')
+      } catch (snapErr) {
+        // Snap-capable MetaMask is NOT required to proceed: the reviewer
+        // can fall back to an ephemeral test account below. Keep the
+        // wallet address connected for display; do not fake a Snap client.
+        setSnapFailed(true)
+        const msg = snapErr?.message || String(snapErr)
+        setError(/wallet_getSnaps|wallet_requestSnaps|32601|method not found/i.test(msg)
+          ? 'This wallet does not support MetaMask Snaps (wallet_getSnaps not found). GenLayer writes need desktop MetaMask with Snaps — or use the reviewer test account below, which works with any wallet.'
+          : 'GenLayer Snap could not be installed in this wallet (' + msg + '). You can still continue with the reviewer test account below.')
+      }
     } catch (e) { setError(e?.message || String(e)) }
+  }
+
+  function doUseReviewerAccount() {
+    // Ephemeral, Studionet-only account generated in this browser.
+    // The key never leaves the browser and is discarded on refresh.
+    // On-chain requester will be this address, NOT the connected wallet —
+    // shown honestly in the header and in the trust panel.
+    const { address, client } = reviewerClient()
+    setEphemeralAddress(address); setClient(client); setWalletMode('ephemeral'); setSnapFailed(false); setError('')
+    setStatus('Reviewer test account ready. Writes will be signed by this ephemeral Studionet account, not by your wallet.')
   }
 
   async function doRequest() {
@@ -142,7 +171,7 @@ export default function App() {
         <div className="brand"><img src="./logo.svg" alt="WeatherProof logo" /><div><b>WeatherProof</b><span>Past-weather proof, on-chain</span></div></div>
         <div className="top-right">
           <span className="net">Stable Studionet · {CHAIN_ID}</span>
-          {wallet ? <span className="wallet mono">{wallet.slice(0, 6)}…{wallet.slice(-4)}</span> : <button className="btn" onClick={doConnect}>Connect wallet</button>}
+          {wallet ? <span className="wallet mono">{wallet.slice(0, 6)}…{wallet.slice(-4)}{walletMode === 'ephemeral' && ephemeralAddress ? ` · test acct ${ephemeralAddress.slice(0, 6)}…${ephemeralAddress.slice(-4)}` : ''}</span> : <button className="btn" onClick={doConnect}>Connect wallet</button>}
         </div>
       </header>
 
@@ -195,6 +224,14 @@ export default function App() {
           )}
           {status && <p className="status">{status}</p>}
           {error && <p className="error">{error}</p>}
+          {snapFailed && (
+            <div className="preview">
+              <span className="preview-tag">Works with any wallet — reviewer test account</span>
+              <p className="muted">Your wallet (OKX, Rabby, mobile, …) cannot install the GenLayer Snap — that is a GenLayer limitation, not a bug in this app. You can still test the full on-chain flow: this generates a temporary test account in your browser, on gasless Studionet only. Its key never leaves your browser and is discarded on refresh. Transactions will be real on-chain transactions, but the requester shown on-chain will be this test account, <b>not</b> your wallet address.</p>
+              <button className="btn" onClick={doUseReviewerAccount}>Continue with reviewer test account</button>
+            </div>
+          )}
+          {walletMode === 'ephemeral' && ephemeralAddress && <p className="muted small">Writing as ephemeral test account {ephemeralAddress} (Studionet only, browser-only key, discarded on refresh) — not as your wallet {wallet}.</p>}
           {tx && <p className="txline">{tx.kind} tx: <a href={explorerTx(tx.hash)} target="_blank" rel="noreferrer" className="mono">{tx.hash.slice(0, 18)}… ↗</a></p>}
           {createdId !== null && <p className="status">Next step: <button className="linkbtn" onClick={() => doVerify(createdId)}>verify attestation #{createdId} on-chain</button></p>}
         </section>

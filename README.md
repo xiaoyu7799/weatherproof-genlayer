@@ -94,9 +94,21 @@ result back, and error feedback.
   It never pretends to be an on-chain result.
 - **On-chain mode** — requests and verifies through the contract above.
   Writes are signed through the official GenLayer MetaMask Snap, the
-  documented Studionet path in `genlayer-js` 1.1.8. If the Snap cannot be
-  installed in your wallet, the app shows that error instead of faking a
-  result; reading existing attestations still works without a wallet.
+  documented Studionet path in `genlayer-js` 1.1.8, when the connected
+  wallet supports it.
+
+**Wallet compatibility — not MetaMask-only.** Any injected EVM wallet
+(MetaMask, OKX, Rabby, Coinbase, …) can connect and read. If a wallet
+cannot install the GenLayer Snap (e.g. OKX, which has no
+`wallet_getSnaps`), the app does not block the reviewer: it offers a
+clearly labelled **reviewer test account** — an ephemeral account
+generated in the browser, on gasless Studionet only, whose key never
+leaves the browser and is discarded on refresh. Transactions signed this
+way are real on-chain transactions, but the requester shown on-chain is
+the test account, not the reviewer's wallet address, and the UI says so.
+It never presents a test-account transaction as wallet-signed, and it
+never fakes a result. Reading existing attestations still works without
+any wallet.
 
 ### Run it locally
 

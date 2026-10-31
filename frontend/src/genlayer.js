@@ -1,4 +1,4 @@
-import { createClient } from 'genlayer-js'
+import { createClient, createAccount, generatePrivateKey } from 'genlayer-js'
 import { studionet } from 'genlayer-js/chains'
 import { TransactionStatus } from 'genlayer-js/types'
 
@@ -17,6 +17,31 @@ export function readClient() {
 
 export function writeClient(accountAddress) {
   return createClient({ chain: studionet, account: accountAddress })
+}
+
+// Wallet-agnostic fallback for wallets that cannot install the GenLayer
+// Snap (OKX, Rabby, mobile wallets, etc.): generate an ephemeral account
+// in the browser and sign with it. Studionet is gasless and permissionless,
+// so this produces a REAL on-chain transaction — but the requester on-chain
+// will be this ephemeral address, NOT the reviewer's wallet address, and
+// the key lives only in browser memory and is discarded on refresh. Callers
+// must show that honestly; never present it as a wallet-signed transaction.
+export function reviewerClient() {
+  const account = createAccount(generatePrivateKey())
+  return { address: account.address, client: createClient({ chain: studionet, account }) }
+}
+
+// Connect any injected EVM wallet (MetaMask, OKX, Rabby, Coinbase, …) for
+// address + chain only, without requiring the Snap. Returns the wallet
+// address; callers then try the Snap separately.
+export async function connectWalletAddress() {
+  const eth = window.ethereum
+  if (!eth) throw new Error('No wallet found. Install a wallet extension (MetaMask, OKX, Rabby, …), then try again.')
+  const accounts = await eth.request({ method: 'eth_requestAccounts' })
+  const address = accounts[0]
+  if (!address) throw new Error('No account selected in the wallet.')
+  await ensureStudionet()
+  return address
 }
 
 export async function ensureStudionet() {
