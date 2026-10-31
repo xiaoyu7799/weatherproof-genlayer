@@ -1,7 +1,6 @@
 # GenLayer Projects submission copy — WeatherProof
 
-Fill the live values from `deployment.json` / `evidence.json` before
-pasting. Do not paste this file's placeholders.
+Live values filled from `deployment.json` / `evidence.json`.
 
 ## Title
 
