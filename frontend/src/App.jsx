@@ -1,9 +1,11 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import {
   CITIES, CONTRACT_ADDRESS, CHAIN_ID, RPC_URL, PURPOSES, classify, connectWalletAddress,
-  explorerAddress, explorerTx, parseRecord, readClient, reviewerClient, sourceUrlFor, verdictLabel,
+  explorerAddress, explorerTx, parseRecord, readClient, reviewerClient, sourceUrlFor,
   waitFinal, writeClient,
 } from './genlayer.js'
+import { LANGS, STRINGS, purposeLabelFor, verdictLabelFor } from './i18n.js'
+import { createRainEngine } from './sound.js'
 
 function yesterdayISO() {
   const d = new Date(); d.setDate(d.getDate() - 1)
@@ -14,35 +16,52 @@ function Field({ label, children }) {
   return <label className="field"><span>{label}</span>{children}</label>
 }
 
-function RecordCard({ r, onVerify, verifying, canWrite }) {
+// Scroll-reveal: content pops out (rises + scales in) when it enters view.
+function Reveal({ children, delay = 0 }) {
+  const ref = useRef(null)
+  const [inView, setInView] = useState(false)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    if (typeof IntersectionObserver === 'undefined') { setInView(true); return }
+    const obs = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) { setInView(true); obs.disconnect() }
+    }, { threshold: 0.12 })
+    obs.observe(el)
+    return () => obs.disconnect()
+  }, [])
+  return <div ref={ref} className={`reveal ${inView ? 'in' : ''}`} style={{ transitionDelay: `${delay}ms` }}>{children}</div>
+}
+
+function RecordCard({ r, onVerify, verifying, canWrite, t, lang }) {
   const verified = r.status === 'verified'
   return (
     <article className={`card ${verified ? 'verified' : 'pending'}`}>
       <div className="card-top">
         <div>
           <div className="card-place">{r.location_name}</div>
-          <div className="card-meta">{r.date} · {r.purpose} · #{r.id}</div>
+          <div className="card-meta">{r.date} · {purposeLabelFor(lang, r.purpose)} · #{r.id}</div>
         </div>
         <span className={`badge ${verified ? 'badge-' + r.verdict : 'badge-pending'}`}>
-          {verified ? verdictLabel(r.verdict) : 'Pending'}
+          {verified ? verdictLabelFor(lang, r.verdict) : t.pending}
         </span>
       </div>
       {verified ? (
         <div className="numbers">
-          <div><b>{r.precip_mm} mm</b><span>precipitation</span></div>
-          <div><b>{r.temp_min_c}° – {r.temp_max_c}°C</b><span>min – max</span></div>
-          <div><b>{r.wind_max_kmh} km/h</b><span>max wind</span></div>
-          <div><b>WMO {r.weather_code}</b><span>weather code</span></div>
+          <div><b>{r.precip_mm} mm</b><span>{t.precip}</span></div>
+          <div><b>{r.temp_min_c}° – {r.temp_max_c}°C</b><span>{t.tempRange}</span></div>
+          <div><b>{r.wind_max_kmh} km/h</b><span>{t.wind}</span></div>
+          <div><b>WMO {r.weather_code}</b><span>{t.wmo}</span></div>
         </div>
       ) : (
-        <p className="muted">Requested, not yet verified. Verification makes GenLayer validators independently fetch the same archive day and agree on the verdict before anything is stored.</p>
+        <p className="muted">{t.recordsSub}</p>
       )}
       <div className="card-foot">
-        <a href={sourceUrlFor(r.latitude, r.longitude, r.date)} target="_blank" rel="noreferrer">Source data ↗</a>
+        <a href={sourceUrlFor(r.latitude, r.longitude, r.date)} target="_blank" rel="noreferrer">{t.sourceData}</a>
         <span className="mono">by {r.requester?.slice(0, 6)}…{r.requester?.slice(-4)}</span>
         {!verified && canWrite && (
           <button className="btn small" disabled={verifying} onClick={() => onVerify(r.id)}>
-            {verifying ? 'Verifying…' : 'Verify on-chain'}
+            {verifying ? t.verifying : t.verifyBtn}
           </button>
         )}
       </div>
@@ -51,6 +70,25 @@ function RecordCard({ r, onVerify, verifying, canWrite }) {
 }
 
 export default function App() {
+  const [lang, setLang] = useState(() => {
+    try {
+      const saved = localStorage.getItem('wp-lang')
+      return LANGS.some(l => l.id === saved) ? saved : 'en'
+    } catch { return 'en' }
+  })
+  const t = STRINGS[lang] || STRINGS.en
+  const [soundOn, setSoundOn] = useState(false)
+  const soundRef = useRef(null)
+  if (!soundRef.current) soundRef.current = createRainEngine()
+  const [intro, setIntro] = useState(() => {
+    try {
+      if (sessionStorage.getItem('wp-intro-seen')) return false
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return false
+      return true
+    } catch { return false }
+  })
+  const [introLeaving, setIntroLeaving] = useState(false)
+
   const [city, setCity] = useState(CITIES[0])
   const [custom, setCustom] = useState(false)
   const [lat, setLat] = useState(CITIES[0].lat)
@@ -73,6 +111,41 @@ export default function App() {
   const [createdId, setCreatedId] = useState(null)
   const maxDate = yesterdayISO()
   const configured = Boolean(CONTRACT_ADDRESS)
+
+  useEffect(() => {
+    try { localStorage.setItem('wp-lang', lang) } catch {}
+    document.documentElement.lang = lang
+  }, [lang])
+
+  useEffect(() => {
+    if (!intro) return
+    const t1 = setTimeout(() => setIntroLeaving(true), 2100)
+    const t2 = setTimeout(() => {
+      setIntro(false)
+      try { sessionStorage.setItem('wp-intro-seen', '1') } catch {}
+    }, 2800)
+    return () => { clearTimeout(t1); clearTimeout(t2) }
+  }, [intro])
+
+  function dismissIntro() {
+    if (!intro || introLeaving) return
+    setIntroLeaving(true)
+    setTimeout(() => {
+      setIntro(false)
+      try { sessionStorage.setItem('wp-intro-seen', '1') } catch {}
+    }, 450)
+  }
+
+  useEffect(() => {
+    if (soundOn && /finalized/i.test(status)) soundRef.current.chime()
+  }, [status, soundOn])
+
+  useEffect(() => () => { soundRef.current.stop() }, [])
+
+  function toggleSound() {
+    if (soundOn) { soundRef.current.stop(); setSoundOn(false) }
+    else if (soundRef.current.start()) setSoundOn(true)
+  }
 
   const pickCity = (c) => { setCity(c); setLat(c.lat); setLon(c.lon); setCustom(false) }
 
@@ -106,8 +179,6 @@ export default function App() {
   async function doConnect() {
     setError(''); setSnapFailed(false)
     try {
-      // Step 1: any injected wallet (MetaMask, OKX, Rabby, Coinbase, …)
-      // can connect for address + chain. Step 2: try the GenLayer Snap.
       const address = await connectWalletAddress()
       setWallet(address)
       const client = writeClient(address)
@@ -115,9 +186,6 @@ export default function App() {
         await client.connect('studionet')
         setClient(client); setWalletMode('snap'); setStatus('Wallet connected on Stable Studionet (GenLayer Snap ready).')
       } catch (snapErr) {
-        // Snap-capable MetaMask is NOT required to proceed: the reviewer
-        // can fall back to an ephemeral test account below. Keep the
-        // wallet address connected for display; do not fake a Snap client.
         setSnapFailed(true)
         const msg = snapErr?.message || String(snapErr)
         setError(/wallet_getSnaps|wallet_requestSnaps|32601|method not found/i.test(msg)
@@ -128,10 +196,6 @@ export default function App() {
   }
 
   function doUseReviewerAccount() {
-    // Ephemeral, Studionet-only account generated in this browser.
-    // The key never leaves the browser and is discarded on refresh.
-    // On-chain requester will be this address, NOT the connected wallet —
-    // shown honestly in the header and in the trust panel.
     const { address, client } = reviewerClient()
     setEphemeralAddress(address); setClient(client); setWalletMode('ephemeral'); setSnapFailed(false); setError('')
     setStatus('Reviewer test account ready. Writes will be signed by this ephemeral Studionet account, not by your wallet.')
@@ -170,24 +234,46 @@ export default function App() {
 
   return (
     <div className="page">
+      {intro && (
+        <div className={`intro ${introLeaving ? 'leaving' : ''}`} onClick={dismissIntro} role="button" aria-label={t.skipIntro}>
+          <div className="intro-sky">
+            <div className="intro-sun" />
+            <div className="intro-cloud intro-cloud-a" />
+            <div className="intro-cloud intro-cloud-b" />
+            <div className="intro-rain"><i /><i /><i /><i /><i /><i /></div>
+          </div>
+          <img className="intro-logo" src="./logo.svg" alt="WeatherProof logo" />
+          <div className="intro-title">WeatherProof</div>
+          <div className="intro-tag">{t.introTag}</div>
+          <div className="intro-bar"><i /></div>
+          <div className="intro-skip">{t.skipIntro}</div>
+        </div>
+      )}
+
       <header className="top">
-        <div className="brand"><img src="./logo.svg" alt="WeatherProof logo" /><div><b>WeatherProof</b><span>Past-weather proof, on-chain</span></div></div>
+        <div className="brand"><img src="./logo.svg" alt="WeatherProof logo" /><div><b>WeatherProof</b><span>{t.brandTag}</span></div></div>
         <div className="top-right">
+          <div className="langswitch" role="group" aria-label="Language">
+            {LANGS.map(l => <button key={l.id} className={lang === l.id ? 'lang active' : 'lang'} onClick={() => setLang(l.id)}>{l.label}</button>)}
+          </div>
+          <button className={`soundbtn ${soundOn ? 'on' : ''}`} onClick={toggleSound} aria-pressed={soundOn} title={soundOn ? t.soundOff : t.soundOn}>
+            {soundOn ? '♪ ' + t.soundOn : '♪ ' + t.soundOff}
+          </button>
           <span className="net">Stable Studionet · {CHAIN_ID}</span>
-          {wallet ? <span className="wallet mono">{wallet.slice(0, 6)}…{wallet.slice(-4)}{walletMode === 'ephemeral' && ephemeralAddress ? ` · test acct ${ephemeralAddress.slice(0, 6)}…${ephemeralAddress.slice(-4)}` : ''}</span> : <button className="btn" onClick={doConnect}>Connect wallet</button>}
+          {wallet ? <span className="wallet mono">{wallet.slice(0, 6)}…{wallet.slice(-4)}{walletMode === 'ephemeral' && ephemeralAddress ? ` · test acct ${ephemeralAddress.slice(0, 6)}…${ephemeralAddress.slice(-4)}` : ''}</span> : <button className="btn" onClick={doConnect}>{t.connectWallet}</button>}
         </div>
       </header>
 
       <section className="hero">
         <div>
-          <p className="kicker"><i>●</i> Neutral proof · Not a screenshot · GenLayer consensus</p>
-          <h1>Was it really<br /><em>raining</em> that day?</h1>
-          <p className="lede">Pick a place and a past date. GenLayer validators independently fetch the same day from the Open-Meteo Archive and must agree on the verdict before it is stored on-chain — a record you can share instead of an editable screenshot.</p>
+          <p className="kicker"><i>●</i> {t.kicker}</p>
+          <h1>{t.heroPre}<em>{t.heroEm}</em>{t.heroPost}</h1>
+          <p className="lede">{t.lede}</p>
           <div className="hero-actions">
-            <a className="btn primary-large" href="#create" style={{ textDecoration: 'none' }}>Create an attestation →</a>
-            <a className="btn secondary" href="#records" style={{ textDecoration: 'none' }}>See verified records</a>
+            <a className="btn primary-large" href="#create" style={{ textDecoration: 'none' }}>{t.ctaCreate}</a>
+            <a className="btn secondary" href="#records" style={{ textDecoration: 'none' }}>{t.ctaRecords}</a>
           </div>
-          <p className="hero-note">Free on gasless Stable Studionet. No server, no API key, no funds. The card on the right is a real record read live from the contract — not a mock.</p>
+          <p className="hero-note">{t.heroNote}</p>
           {!configured && <div className="warn">This build has no contract address configured yet. Set <code>VITE_CONTRACT_ADDRESS</code> and rebuild — browsing and the browser preview still work.</div>}
         </div>
         <div className="sky" aria-hidden="true">
@@ -198,21 +284,21 @@ export default function App() {
           <div className="sky-card">
             {featured ? (
               <>
-                <div className="eyebrow">Live from chain · {featured.status === 'verified' ? 'Verified' : 'Pending'} · #{featured.id}</div>
+                <div className="eyebrow">{t.liveFromChain} · {featured.status === 'verified' ? t.verified : t.pending} · #{featured.id}</div>
                 <div className="sky-place">{featured.location_name} · {featured.date}</div>
-                <div className="sky-meta">{featured.purpose}{featured.status === 'verified' ? ` · ${verdictLabel(featured.verdict)}` : ''}</div>
+                <div className="sky-meta">{purposeLabelFor(lang, featured.purpose)}{featured.status === 'verified' ? ` · ${verdictLabelFor(lang, featured.verdict)}` : ''}</div>
                 {featured.status === 'verified' && (
                   <div className="sky-numbers">
-                    <div><b>{featured.precip_mm} mm</b><span>rain</span></div>
-                    <div><b>{featured.temp_min_c}°–{featured.temp_max_c}°C</b><span>temp</span></div>
-                    <div><b>{featured.wind_max_kmh} km/h</b><span>wind</span></div>
+                    <div><b>{featured.precip_mm} mm</b><span>{t.rain}</span></div>
+                    <div><b>{featured.temp_min_c}°–{featured.temp_max_c}°C</b><span>{t.temp}</span></div>
+                    <div><b>{featured.wind_max_kmh} km/h</b><span>{t.wind}</span></div>
                   </div>
                 )}
               </>
             ) : (
               <>
-                <div className="eyebrow">Live from chain</div>
-                <div className="sky-place">Loading the latest record…</div>
+                <div className="eyebrow">{t.liveFromChain}</div>
+                <div className="sky-place">{t.loadingRecord}</div>
                 <div className="skeleton" style={{ marginTop: 12 }} />
               </>
             )}
@@ -220,97 +306,107 @@ export default function App() {
         </div>
       </section>
 
-      <section className="stats" aria-label="Live stats">
-        <div className="stat"><b>{records.length}</b><span>Attestations on-chain</span></div>
-        <div className="stat"><b>{verifiedCount}</b><span>Verified</span></div>
-        <div className="stat"><b>61999</b><span>Studionet chain ID</span></div>
-        <div className="stat"><b>ERA5</b><span>Open-Meteo Archive</span></div>
-      </section>
+      <Reveal>
+        <section className="stats" aria-label="Live stats">
+          <div className="stat"><b>{records.length}</b><span>{t.statTotal}</span></div>
+          <div className="stat"><b>{verifiedCount}</b><span>{t.statVerified}</span></div>
+          <div className="stat"><b>61999</b><span>{t.statChain}</span></div>
+          <div className="stat"><b>ERA5</b><span>{t.statSource}</span></div>
+        </section>
+      </Reveal>
 
-      <ol className="steps">
-        <li><div className="step-no">01</div><b>Request</b><span>Place, past date, purpose — stored with the exact archive URL to be fetched.</span></li>
-        <li><div className="step-no">02</div><b>Verify</b><span>Every validator re-fetches the same day and must agree, or nothing is stored.</span></li>
-        <li><div className="step-no">03</div><b>Share</b><span>A verified card with its verdict, numbers and source link — checkable by anyone.</span></li>
-      </ol>
+      <Reveal delay={80}>
+        <ol className="steps">
+          <li><div className="step-no">01</div><b>{t.step1Title}</b><span>{t.step1Desc}</span></li>
+          <li><div className="step-no">02</div><b>{t.step2Title}</b><span>{t.step2Desc}</span></li>
+          <li><div className="step-no">03</div><b>{t.step3Title}</b><span>{t.step3Desc}</span></li>
+        </ol>
+      </Reveal>
 
       <main className="grid">
-        <section className="panel" id="create">
-          <h2>Create an attestation</h2>
-          <p className="panel-sub">Choose a preset city or custom coordinates, a past date and a purpose. Preview is free and needs no wallet — but only the on-chain flow creates a verified record.</p>
-          <div className="chips">
-            {CITIES.map(c => <button key={c.name} className={!custom && city.name === c.name ? 'chip active' : 'chip'} onClick={() => pickCity(c)}>{c.name}</button>)}
-            <button className={custom ? 'chip active' : 'chip'} onClick={() => setCustom(true)}>Custom coords</button>
-          </div>
-          {custom && (
-            <div className="row">
-              <Field label="Latitude"><input value={lat} onChange={e => setLat(e.target.value)} inputMode="decimal" /></Field>
-              <Field label="Longitude"><input value={lon} onChange={e => setLon(e.target.value)} inputMode="decimal" /></Field>
+        <Reveal>
+          <section className="panel" id="create">
+            <h2>{t.createTitle}</h2>
+            <p className="panel-sub">{t.createSub}</p>
+            <div className="chips">
+              {CITIES.map(c => <button key={c.name} className={!custom && city.name === c.name ? 'chip active' : 'chip'} onClick={() => pickCity(c)}>{c.name}</button>)}
+              <button className={custom ? 'chip active' : 'chip'} onClick={() => setCustom(true)}>{t.customCoords}</button>
             </div>
-          )}
-          {!custom && <p className="muted">Coordinates: {lat}, {lon} — {locationName}</p>}
-          <div className="row">
-            <Field label="Past date"><input type="date" value={date} min="1940-01-01" max={maxDate} onChange={e => setDate(e.target.value)} /></Field>
-            <Field label="Purpose"><select value={purpose} onChange={e => setPurpose(e.target.value)}>{PURPOSES.map(p => <option key={p}>{p}</option>)}</select></Field>
-          </div>
-          <div className="actions">
-            <button className="btn primary-large" onClick={doRequest} disabled={!configured || !wallet}>Request on-chain</button>
-            <button className="btn secondary" onClick={doPreview} disabled={previewBusy}>{previewBusy ? 'Loading…' : 'Browser preview (not on-chain)'}</button>
-          </div>
-          {!wallet && <p className="muted">On-chain requests need a wallet. The browser preview is free and needs no wallet — but it is <b>not</b> an on-chain attestation.</p>}
-          {preview && (
-            <div className="preview">
-              <span className="preview-tag">Browser preview only — not on-chain</span>
-              <div className="numbers">
-                <div><b>{preview.precip} mm</b><span>precipitation</span></div>
-                <div><b>{preview.tmin}° – {preview.tmax}°C</b><span>min – max</span></div>
-                <div><b>{preview.wind} km/h</b><span>max wind</span></div>
-                <div><b>{verdictLabel(preview.verdict)}</b><span>would-be verdict</span></div>
+            {custom && (
+              <div className="row">
+                <Field label="Latitude"><input value={lat} onChange={e => setLat(e.target.value)} inputMode="decimal" /></Field>
+                <Field label="Longitude"><input value={lon} onChange={e => setLon(e.target.value)} inputMode="decimal" /></Field>
               </div>
-              <a href={sourceUrlFor(lat, lon, date)} target="_blank" rel="noreferrer">Open the exact archive URL ↗</a>
+            )}
+            {!custom && <p className="muted">{t.coords}: {lat}, {lon} — {locationName}</p>}
+            <div className="row">
+              <Field label={t.fieldDate}><input type="date" value={date} min="1940-01-01" max={maxDate} onChange={e => setDate(e.target.value)} /></Field>
+              <Field label={t.fieldPurpose}><select value={purpose} onChange={e => setPurpose(e.target.value)}>{PURPOSES.map(p => <option key={p} value={p}>{purposeLabelFor(lang, p)}</option>)}</select></Field>
             </div>
-          )}
-          {status && <p className={`status ${statusBusy ? 'busy' : ''}`}><span className="dot" />{status}</p>}
-          {error && <p className="error">{error}</p>}
-          {snapFailed && (
-            <div className="preview">
-              <span className="preview-tag">Works with any wallet — reviewer test account</span>
-              <p className="muted">Your wallet (OKX, Rabby, mobile, …) cannot install the GenLayer Snap — that is a GenLayer limitation, not a bug in this app. You can still test the full on-chain flow: this generates a temporary test account in your browser, on gasless Studionet only. Its key never leaves your browser and is discarded on refresh. Transactions will be real on-chain transactions, but the requester shown on-chain will be this test account, <b>not</b> your wallet address.</p>
-              <button className="btn" onClick={doUseReviewerAccount}>Continue with reviewer test account</button>
+            <div className="actions">
+              <button className="btn primary-large" onClick={doRequest} disabled={!configured || !wallet}>{t.btnRequest}</button>
+              <button className="btn secondary" onClick={doPreview} disabled={previewBusy}>{previewBusy ? t.previewBusy : t.btnPreview}</button>
             </div>
-          )}
-          {walletMode === 'ephemeral' && ephemeralAddress && <p className="muted small">Writing as ephemeral test account {ephemeralAddress} (Studionet only, browser-only key, discarded on refresh) — not as your wallet {wallet}.</p>}
-          {tx && <p className="txline">{tx.kind} tx: <a href={explorerTx(tx.hash)} target="_blank" rel="noreferrer" className="mono">{tx.hash.slice(0, 18)}… ↗</a></p>}
-          {createdId !== null && <p className="status">Next step: <button className="linkbtn" onClick={() => doVerify(createdId)}>verify attestation #{createdId} on-chain</button></p>}
-        </section>
+            {!wallet && <p className="muted">{t.needWallet}<b>{t.needWalletEm}</b>{t.needWalletEnd}</p>}
+            {preview && (
+              <div className="preview">
+                <span className="preview-tag">{t.previewTag}</span>
+                <div className="numbers">
+                  <div><b>{preview.precip} mm</b><span>{t.precip}</span></div>
+                  <div><b>{preview.tmin}° – {preview.tmax}°C</b><span>{t.tempRange}</span></div>
+                  <div><b>{preview.wind} km/h</b><span>{t.wind}</span></div>
+                  <div><b>{verdictLabelFor(lang, preview.verdict)}</b><span>{t.wouldBeVerdict}</span></div>
+                </div>
+                <a href={sourceUrlFor(lat, lon, date)} target="_blank" rel="noreferrer">{t.openArchive}</a>
+              </div>
+            )}
+            {status && <p className={`status ${statusBusy ? 'busy' : ''}`}><span className="dot" />{status}</p>}
+            {error && <p className="error">{error}</p>}
+            {snapFailed && (
+              <div className="preview">
+                <span className="preview-tag">{t.reviewerTag}</span>
+                <p className="muted">{t.reviewerText}<b>{t.reviewerTextEm}</b>{t.reviewerTextEnd}</p>
+                <button className="btn" onClick={doUseReviewerAccount}>{t.reviewerBtn}</button>
+              </div>
+            )}
+            {walletMode === 'ephemeral' && ephemeralAddress && <p className="muted small">{t.writingAsPre}{ephemeralAddress}{t.writingAsMid}{wallet}{t.writingAsEnd}</p>}
+            {tx && <p className="txline">{tx.kind} tx: <a href={explorerTx(tx.hash)} target="_blank" rel="noreferrer" className="mono">{tx.hash.slice(0, 18)}… ↗</a></p>}
+            {createdId !== null && <p className="status">Next step: <button className="linkbtn" onClick={() => doVerify(createdId)}>verify attestation #{createdId} on-chain</button></p>}
+          </section>
+        </Reveal>
 
-        <section className="panel" id="records">
-          <div className="panel-head"><h2>Attestations on-chain</h2><button className="btn small secondary" onClick={loadRecords} disabled={listBusy}>{listBusy ? 'Loading…' : 'Refresh'}</button></div>
-          <p className="panel-sub">Newest first. Verified means validators agreed on that archive day; pending means it is waiting for verification.</p>
-          {!configured && <p className="muted">No contract configured in this build.</p>}
-          {configured && records.length === 0 && !listBusy && <p className="muted">No attestations yet. Be the first: request one, then verify it.</p>}
-          <div className="list">
-            {records.map(r => <RecordCard key={r.id} r={r} canWrite={Boolean(wallet)} verifying={verifyingId === r.id} onVerify={doVerify} />)}
-          </div>
-          <p className="muted small">Network: Stable Studionet ({CHAIN_ID}), RPC {RPC_URL}. Contract: {configured ? <a href={explorerAddress(CONTRACT_ADDRESS)} target="_blank" rel="noreferrer" className="mono">{CONTRACT_ADDRESS.slice(0, 10)}… ↗</a> : 'not configured'}.</p>
-        </section>
+        <Reveal delay={120}>
+          <section className="panel" id="records">
+            <div className="panel-head"><h2>{t.recordsTitle}</h2><button className="btn small secondary" onClick={loadRecords} disabled={listBusy}>{listBusy ? t.loading : t.refresh}</button></div>
+            <p className="panel-sub">{t.recordsSub}</p>
+            {!configured && <p className="muted">No contract configured in this build.</p>}
+            {configured && records.length === 0 && !listBusy && <p className="muted">{t.noRecords}</p>}
+            <div className="list">
+              {records.map((r, i) => <Reveal key={r.id} delay={i * 80}><RecordCard r={r} canWrite={Boolean(wallet)} verifying={verifyingId === r.id} onVerify={doVerify} t={t} lang={lang} /></Reveal>)}
+            </div>
+            <p className="muted small">Network: Stable Studionet ({CHAIN_ID}), RPC {RPC_URL}. Contract: {configured ? <a href={explorerAddress(CONTRACT_ADDRESS)} target="_blank" rel="noreferrer" className="mono">{CONTRACT_ADDRESS.slice(0, 10)}… ↗</a> : 'not configured'}.</p>
+          </section>
+        </Reveal>
       </main>
 
-      <section className="trust">
-        <div>
-          <h2>How consensus actually works here</h2>
-          <p>The contract does not trust one fetch. The leader fetches the archive day, extracts precipitation, temperatures, wind and the WMO code, and derives a verdict from fixed thresholds. Each validator re-fetches the same URL and only accepts the result if it matches — otherwise nothing is stored and the request stays pending.</p>
-          <p className="muted small">Honest limits: Open-Meteo Archive data is reanalysis for the grid cell around the coordinates, in GMT, for the whole day — not a station reading for a street address or an hour, and not a legal certificate. A verified record means “these validators agreed on this archive day”, nothing more.</p>
-        </div>
-        <ul className="tolerance">
-          <li><span>Verdict &amp; weather code</span><b>exact match</b></li>
-          <li><span>Precipitation</span><b>max 0.5 mm / 10%</b></li>
-          <li><span>Temperatures</span><b>± 1 °C</b></li>
-          <li><span>Max wind</span><b>± 2 km/h</b></li>
-          <li><span>Place &amp; date</span><b>exact match</b></li>
-        </ul>
-      </section>
+      <Reveal>
+        <section className="trust">
+          <div>
+            <h2>{t.trustTitle}</h2>
+            <p>{t.trustP1}</p>
+            <p className="muted small">{t.trustLimits}</p>
+          </div>
+          <ul className="tolerance">
+            <li><span>{t.tolVerdict}</span><b>{t.tolExact}</b></li>
+            <li><span>{t.tolPrecip}</span><b>{t.tolPrecipVal}</b></li>
+            <li><span>{t.tolTemp}</span><b>{t.tolTempVal}</b></li>
+            <li><span>{t.tolWind}</span><b>{t.tolWindVal}</b></li>
+            <li><span>{t.tolPlace}</span><b>{t.tolExact}</b></li>
+          </ul>
+        </section>
+      </Reveal>
 
-      <footer>WeatherProof · GenLayer Intelligent Contract · Source: Open-Meteo Archive (ERA5) · No API key, no server, no funds on Studionet.</footer>
+      <footer>{t.footer}</footer>
     </div>
   )
 }
