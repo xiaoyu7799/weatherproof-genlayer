@@ -53,7 +53,15 @@ export async function connectWallet() {
   try {
     await client.connect('studionet')
   } catch (err) {
-    throw new Error('GenLayer Snap could not be installed in this wallet (' + (err?.message || err) + '). Writes need the Snap; reading attestations below still works.')
+    const msg = err?.message || String(err)
+    // wallet_getSnaps (-32601 / method not found) means this wallet is not
+    // a Snaps-capable MetaMask: e.g. a mobile wallet, another extension that
+    // took over window.ethereum, or an outdated MetaMask. Say so plainly
+    // instead of surfacing the raw method name.
+    if (/wallet_getSnaps|wallet_requestSnaps|32601|method not found/i.test(msg)) {
+      throw new Error('This wallet does not support MetaMask Snaps (wallet_getSnaps not found). GenLayer writes need desktop MetaMask with Snaps enabled: switch to desktop Chrome/Edge with the latest MetaMask extension, make sure no other wallet extension is taking over, refresh, and try again. Reading attestations below still works without a wallet.')
+    }
+    throw new Error('GenLayer Snap could not be installed in this wallet (' + msg + '). Writes need the Snap; reading attestations below still works.')
   }
   return { address, client }
 }
