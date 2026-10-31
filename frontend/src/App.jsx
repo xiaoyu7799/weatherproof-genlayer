@@ -36,7 +36,7 @@ function Reveal({ children, delay = 0 }) {
 function RecordCard({ r, onVerify, verifying, canWrite, t, lang }) {
   const verified = r.status === 'verified'
   return (
-    <article className={`card ${verified ? 'verified' : 'pending'}`}>
+    <article className={`card tilt ${verified ? 'verified' : 'pending'}`}>
       <div className="card-top">
         <div>
           <div className="card-place">{r.location_name}</div>
@@ -142,6 +142,60 @@ export default function App() {
 
   useEffect(() => () => { soundRef.current.stop() }, [])
 
+  // Mouse playfulness (fine pointers only; touch devices get none of this):
+  // a soft glow follows the cursor and swells over interactive elements,
+  // the hero sky parallaxes with the mouse, cards/panels tilt subtly,
+  // and the hero CTAs are magnetic. All transforms are inline and reset
+  // on leave, so nothing sticks after the mouse moves away.
+  const glowRef = useRef(null)
+  useEffect(() => {
+    if (!window.matchMedia('(pointer: fine)').matches) return
+    const glow = glowRef.current
+    if (!glow) return
+    let tx = window.innerWidth / 2, ty = window.innerHeight / 2, cx = tx, cy = ty
+    let raf = 0, shown = false, lastTilt = null, lastMag = null
+    const loop = () => {
+      cx += (tx - cx) * 0.16; cy += (ty - cy) * 0.16
+      glow.style.transform = `translate(${cx}px, ${cy}px) translate(-50%, -50%)`
+      raf = requestAnimationFrame(loop)
+    }
+    raf = requestAnimationFrame(loop)
+    function onMove(e) {
+      tx = e.clientX; ty = e.clientY
+      if (!shown) { glow.classList.add('visible'); shown = true }
+      glow.classList.toggle('big', Boolean(e.target.closest('a,button,.chip,input,select,.card,.panel')))
+      const hero = e.target.closest('.hero')
+      if (hero) {
+        const r = hero.getBoundingClientRect()
+        hero.style.setProperty('--px', (((e.clientX - r.left) / r.width - 0.5) * 2).toFixed(3))
+        hero.style.setProperty('--py', (((e.clientY - r.top) / r.height - 0.5) * 2).toFixed(3))
+      }
+      const tiltEl = e.target.closest('.tilt')
+      if (tiltEl !== lastTilt) { if (lastTilt) lastTilt.style.transform = ''; lastTilt = tiltEl }
+      if (tiltEl) {
+        const r = tiltEl.getBoundingClientRect()
+        const rx = (0.5 - (e.clientY - r.top) / r.height) * 6
+        const ry = ((e.clientX - r.left) / r.width - 0.5) * 6
+        tiltEl.style.transform = `perspective(900px) rotateX(${rx.toFixed(2)}deg) rotateY(${ry.toFixed(2)}deg) translateY(-2px)`
+      }
+      const magEl = e.target.closest('.magnetic')
+      if (magEl !== lastMag) { if (lastMag) lastMag.style.transform = ''; lastMag = magEl }
+      if (magEl) {
+        const r = magEl.getBoundingClientRect()
+        const dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2)
+        magEl.style.transform = `translate(${(dx * 0.16).toFixed(1)}px, ${(dy * 0.16).toFixed(1)}px)`
+      }
+    }
+    function onLeave() { glow.classList.remove('visible'); shown = false }
+    document.addEventListener('mousemove', onMove)
+    document.documentElement.addEventListener('mouseleave', onLeave)
+    return () => {
+      cancelAnimationFrame(raf)
+      document.removeEventListener('mousemove', onMove)
+      document.documentElement.removeEventListener('mouseleave', onLeave)
+    }
+  }, [])
+
   function toggleSound() {
     if (soundOn) { soundRef.current.stop(); setSoundOn(false) }
     else if (soundRef.current.start()) setSoundOn(true)
@@ -234,6 +288,7 @@ export default function App() {
 
   return (
     <div className="page">
+      <div className="cursor-glow" ref={glowRef} aria-hidden="true" />
       {intro && (
         <div className={`intro ${introLeaving ? 'leaving' : ''}`} onClick={dismissIntro} role="button" aria-label={t.skipIntro}>
           <div className="intro-sky">
@@ -270,8 +325,8 @@ export default function App() {
           <h1>{t.heroPre}<em>{t.heroEm}</em>{t.heroPost}</h1>
           <p className="lede">{t.lede}</p>
           <div className="hero-actions">
-            <a className="btn primary-large" href="#create" style={{ textDecoration: 'none' }}>{t.ctaCreate}</a>
-            <a className="btn secondary" href="#records" style={{ textDecoration: 'none' }}>{t.ctaRecords}</a>
+            <a className="btn primary-large magnetic" href="#create" style={{ textDecoration: 'none' }}>{t.ctaCreate}</a>
+            <a className="btn secondary magnetic" href="#records" style={{ textDecoration: 'none' }}>{t.ctaRecords}</a>
           </div>
           <p className="hero-note">{t.heroNote}</p>
           {!configured && <div className="warn">This build has no contract address configured yet. Set <code>VITE_CONTRACT_ADDRESS</code> and rebuild — browsing and the browser preview still work.</div>}
@@ -325,7 +380,7 @@ export default function App() {
 
       <main className="grid">
         <Reveal>
-          <section className="panel" id="create">
+          <section className="panel tilt" id="create">
             <h2>{t.createTitle}</h2>
             <p className="panel-sub">{t.createSub}</p>
             <div className="chips">
@@ -376,7 +431,7 @@ export default function App() {
         </Reveal>
 
         <Reveal delay={120}>
-          <section className="panel" id="records">
+          <section className="panel tilt" id="records">
             <div className="panel-head"><h2>{t.recordsTitle}</h2><button className="btn small secondary" onClick={loadRecords} disabled={listBusy}>{listBusy ? t.loading : t.refresh}</button></div>
             <p className="panel-sub">{t.recordsSub}</p>
             {!configured && <p className="muted">No contract configured in this build.</p>}
