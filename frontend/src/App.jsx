@@ -17,7 +17,7 @@ function Field({ label, children }) {
 function RecordCard({ r, onVerify, verifying, canWrite }) {
   const verified = r.status === 'verified'
   return (
-    <article className="card">
+    <article className={`card ${verified ? 'verified' : 'pending'}`}>
       <div className="card-top">
         <div>
           <div className="card-place">{r.location_name}</div>
@@ -164,6 +164,9 @@ export default function App() {
   }
 
   const locationName = useMemo(() => custom ? 'Custom location' : city.name, [custom, city])
+  const featured = records.find(r => r.status === 'verified') || records[0]
+  const verifiedCount = records.filter(r => r.status === 'verified').length
+  const statusBusy = /waiting|submitting|verifying|loading/i.test(status)
 
   return (
     <div className="page">
@@ -176,20 +179,64 @@ export default function App() {
       </header>
 
       <section className="hero">
-        <p className="kicker">A screenshot proves nothing. This does.</p>
-        <h1>Was it really<br />raining that day?</h1>
-        <p className="lede">Pick a place and a past date. GenLayer validators independently fetch the same day from the Open-Meteo Archive and must agree on the verdict before it is stored on-chain — a neutral record you can share instead of a screenshot.</p>
-        <ol className="steps">
-          <li><b>1 · Request</b><span>Place, date, purpose</span></li>
-          <li><b>2 · Verify</b><span>Validators re-fetch &amp; agree</span></li>
-          <li><b>3 · Share</b><span>Verified card + source URL</span></li>
-        </ol>
-        {!configured && <div className="warn">This build has no contract address configured yet. Set <code>VITE_CONTRACT_ADDRESS</code> and rebuild — browsing and the browser preview still work.</div>}
+        <div>
+          <p className="kicker"><i>●</i> Neutral proof · Not a screenshot · GenLayer consensus</p>
+          <h1>Was it really<br /><em>raining</em> that day?</h1>
+          <p className="lede">Pick a place and a past date. GenLayer validators independently fetch the same day from the Open-Meteo Archive and must agree on the verdict before it is stored on-chain — a record you can share instead of an editable screenshot.</p>
+          <div className="hero-actions">
+            <a className="btn primary-large" href="#create" style={{ textDecoration: 'none' }}>Create an attestation →</a>
+            <a className="btn secondary" href="#records" style={{ textDecoration: 'none' }}>See verified records</a>
+          </div>
+          <p className="hero-note">Free on gasless Stable Studionet. No server, no API key, no funds. The card on the right is a real record read live from the contract — not a mock.</p>
+          {!configured && <div className="warn">This build has no contract address configured yet. Set <code>VITE_CONTRACT_ADDRESS</code> and rebuild — browsing and the browser preview still work.</div>}
+        </div>
+        <div className="sky" aria-hidden="true">
+          <div className="sun" />
+          <div className="cloud cloud-a" />
+          <div className="cloud cloud-b" />
+          <div className="rain"><i /><i /><i /><i /><i /><i /></div>
+          <div className="sky-card">
+            {featured ? (
+              <>
+                <div className="eyebrow">Live from chain · {featured.status === 'verified' ? 'Verified' : 'Pending'} · #{featured.id}</div>
+                <div className="sky-place">{featured.location_name} · {featured.date}</div>
+                <div className="sky-meta">{featured.purpose}{featured.status === 'verified' ? ` · ${verdictLabel(featured.verdict)}` : ''}</div>
+                {featured.status === 'verified' && (
+                  <div className="sky-numbers">
+                    <div><b>{featured.precip_mm} mm</b><span>rain</span></div>
+                    <div><b>{featured.temp_min_c}°–{featured.temp_max_c}°C</b><span>temp</span></div>
+                    <div><b>{featured.wind_max_kmh} km/h</b><span>wind</span></div>
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                <div className="eyebrow">Live from chain</div>
+                <div className="sky-place">Loading the latest record…</div>
+                <div className="skeleton" style={{ marginTop: 12 }} />
+              </>
+            )}
+          </div>
+        </div>
       </section>
 
+      <section className="stats" aria-label="Live stats">
+        <div className="stat"><b>{records.length}</b><span>Attestations on-chain</span></div>
+        <div className="stat"><b>{verifiedCount}</b><span>Verified</span></div>
+        <div className="stat"><b>61999</b><span>Studionet chain ID</span></div>
+        <div className="stat"><b>ERA5</b><span>Open-Meteo Archive</span></div>
+      </section>
+
+      <ol className="steps">
+        <li><div className="step-no">01</div><b>Request</b><span>Place, past date, purpose — stored with the exact archive URL to be fetched.</span></li>
+        <li><div className="step-no">02</div><b>Verify</b><span>Every validator re-fetches the same day and must agree, or nothing is stored.</span></li>
+        <li><div className="step-no">03</div><b>Share</b><span>A verified card with its verdict, numbers and source link — checkable by anyone.</span></li>
+      </ol>
+
       <main className="grid">
-        <section className="panel">
+        <section className="panel" id="create">
           <h2>Create an attestation</h2>
+          <p className="panel-sub">Choose a preset city or custom coordinates, a past date and a purpose. Preview is free and needs no wallet — but only the on-chain flow creates a verified record.</p>
           <div className="chips">
             {CITIES.map(c => <button key={c.name} className={!custom && city.name === c.name ? 'chip active' : 'chip'} onClick={() => pickCity(c)}>{c.name}</button>)}
             <button className={custom ? 'chip active' : 'chip'} onClick={() => setCustom(true)}>Custom coords</button>
@@ -206,10 +253,10 @@ export default function App() {
             <Field label="Purpose"><select value={purpose} onChange={e => setPurpose(e.target.value)}>{PURPOSES.map(p => <option key={p}>{p}</option>)}</select></Field>
           </div>
           <div className="actions">
+            <button className="btn primary-large" onClick={doRequest} disabled={!configured || !wallet}>Request on-chain</button>
             <button className="btn secondary" onClick={doPreview} disabled={previewBusy}>{previewBusy ? 'Loading…' : 'Browser preview (not on-chain)'}</button>
-            <button className="btn" onClick={doRequest} disabled={!configured || !wallet}>Request on-chain</button>
           </div>
-          {!wallet && <p className="muted">On-chain requests need a wallet. The browser preview below is free and needs no wallet — but it is <b>not</b> an on-chain attestation.</p>}
+          {!wallet && <p className="muted">On-chain requests need a wallet. The browser preview is free and needs no wallet — but it is <b>not</b> an on-chain attestation.</p>}
           {preview && (
             <div className="preview">
               <span className="preview-tag">Browser preview only — not on-chain</span>
@@ -222,7 +269,7 @@ export default function App() {
               <a href={sourceUrlFor(lat, lon, date)} target="_blank" rel="noreferrer">Open the exact archive URL ↗</a>
             </div>
           )}
-          {status && <p className="status">{status}</p>}
+          {status && <p className={`status ${statusBusy ? 'busy' : ''}`}><span className="dot" />{status}</p>}
           {error && <p className="error">{error}</p>}
           {snapFailed && (
             <div className="preview">
@@ -236,8 +283,9 @@ export default function App() {
           {createdId !== null && <p className="status">Next step: <button className="linkbtn" onClick={() => doVerify(createdId)}>verify attestation #{createdId} on-chain</button></p>}
         </section>
 
-        <section className="panel">
+        <section className="panel" id="records">
           <div className="panel-head"><h2>Attestations on-chain</h2><button className="btn small secondary" onClick={loadRecords} disabled={listBusy}>{listBusy ? 'Loading…' : 'Refresh'}</button></div>
+          <p className="panel-sub">Newest first. Verified means validators agreed on that archive day; pending means it is waiting for verification.</p>
           {!configured && <p className="muted">No contract configured in this build.</p>}
           {configured && records.length === 0 && !listBusy && <p className="muted">No attestations yet. Be the first: request one, then verify it.</p>}
           <div className="list">
@@ -248,9 +296,18 @@ export default function App() {
       </main>
 
       <section className="trust">
-        <h2>How consensus actually works here</h2>
-        <p>The contract does not trust one fetch. The leader fetches the archive day, extracts precipitation, temperatures, wind and the WMO code, and derives a verdict from fixed thresholds. Each validator re-fetches the same URL and only accepts the result if the verdict and weather code match exactly and the numbers agree within tolerance (precipitation max 0.5 mm / 10%, temperatures 1 °C, wind 2 km/h). If they disagree, nothing is stored and the request stays pending.</p>
-        <p className="muted small">Honest limits: Open-Meteo Archive data is reanalysis for the grid cell around the coordinates, in GMT, for the whole day — not a station reading for a street address or an hour, and not a legal certificate. A verified record means “these validators agreed on this archive day”, nothing more.</p>
+        <div>
+          <h2>How consensus actually works here</h2>
+          <p>The contract does not trust one fetch. The leader fetches the archive day, extracts precipitation, temperatures, wind and the WMO code, and derives a verdict from fixed thresholds. Each validator re-fetches the same URL and only accepts the result if it matches — otherwise nothing is stored and the request stays pending.</p>
+          <p className="muted small">Honest limits: Open-Meteo Archive data is reanalysis for the grid cell around the coordinates, in GMT, for the whole day — not a station reading for a street address or an hour, and not a legal certificate. A verified record means “these validators agreed on this archive day”, nothing more.</p>
+        </div>
+        <ul className="tolerance">
+          <li><span>Verdict &amp; weather code</span><b>exact match</b></li>
+          <li><span>Precipitation</span><b>max 0.5 mm / 10%</b></li>
+          <li><span>Temperatures</span><b>± 1 °C</b></li>
+          <li><span>Max wind</span><b>± 2 km/h</b></li>
+          <li><span>Place &amp; date</span><b>exact match</b></li>
+        </ul>
       </section>
 
       <footer>WeatherProof · GenLayer Intelligent Contract · Source: Open-Meteo Archive (ERA5) · No API key, no server, no funds on Studionet.</footer>
