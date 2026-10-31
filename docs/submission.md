@@ -47,7 +47,7 @@ an LLM (there is none in the verdict path, deliberately).
 ## Links
 
 - Website: https://xiaoyu7799.github.io/weatherproof-genlayer/
-- Repository: https://github.com/xiaoyu7799/weatherproof-genlayer (to be created by the user; see README)
+- Repository: https://github.com/xiaoyu7799/weatherproof-genlayer
 - Contract: https://explorer-studio.genlayer.com/address/0x304ba2D879EaC48bB0030cB0A196499d34c15137
 - Deploy tx: 0xbb0e84abee4ac80da88c72bbc02c428c2770a1eaa525bf6ab245e85e410638cd (FINALIZED, Stable Studionet)
 - Request tx: 0x38a9ebe346b80e7e3a12b27e4ef81ce5a2f17bfa8afec4e443b0b8d55764608e (FINALIZED)
