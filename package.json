@@ -1,0 +1,1 @@
+{"dependencies":{"genlayer-js":"1.1.8"},"name":"weatherproof-genlayer","private":true,"scripts":{"deploy":"node scripts/deploy.mjs","flow":"node scripts/flow.mjs"},"type":"module","version":"1.0.0"}
