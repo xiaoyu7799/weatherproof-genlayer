@@ -46,7 +46,7 @@ an LLM (there is none in the verdict path, deliberately).
 
 ## Links
 
-- Website: (GitHub Pages URL from the Pages workflow, after the repo is created and pushed)
+- Website: https://xiaoyu7799.github.io/weatherproof-genlayer/
 - Repository: https://github.com/xiaoyu7799/weatherproof-genlayer (to be created by the user; see README)
 - Contract: https://explorer-studio.genlayer.com/address/0x304ba2D879EaC48bB0030cB0A196499d34c15137
 - Deploy tx: 0xbb0e84abee4ac80da88c72bbc02c428c2770a1eaa525bf6ab245e85e410638cd (FINALIZED, Stable Studionet)
