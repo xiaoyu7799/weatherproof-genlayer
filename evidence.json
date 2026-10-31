@@ -1,0 +1,30 @@
+{
+  "network": "Stable Studionet",
+  "chainId": 61999,
+  "rpcUrl": "https://studio.genlayer.com/api",
+  "contractAddress": "0x304ba2D879EaC48bB0030cB0A196499d34c15137",
+  "explorer": "https://explorer-studio.genlayer.com/address/0x304ba2D879EaC48bB0030cB0A196499d34c15137",
+  "flowAccount": "0xC032E5C9046539214CA3D5Cab6599f4511DEbfE8",
+  "attestationId": 0,
+  "requestTxHash": "0x38a9ebe346b80e7e3a12b27e4ef81ce5a2f17bfa8afec4e443b0b8d55764608e",
+  "verifyTxHash": "0x48bb2eae76491e9746f36e8f3cd06d011891ade16ca26fdd1e9369f983a68381",
+  "verifyReceiptStatus": "FINALIZED",
+  "record": {
+    "id": 0,
+    "location_name": "London",
+    "latitude": "51.5074",
+    "longitude": "-0.1278",
+    "date": "2025-10-01",
+    "purpose": "outdoor event proof",
+    "requester": "0xC032E5C9046539214CA3D5Cab6599f4511DEbfE8",
+    "status": "verified",
+    "verdict": "light_rain",
+    "precip_mm": 0.1,
+    "temp_max_c": 17.9,
+    "temp_min_c": 9.9,
+    "weather_code": 51,
+    "wind_max_kmh": 8.8,
+    "source_url": "https://archive-api.open-meteo.com/v1/archive?latitude=51.5074&longitude=-0.1278&start_date=2025-10-01&end_date=2025-10-01&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,weather_code,wind_speed_10m_max&timezone=GMT"
+  },
+  "checkedAt": "2026-10-31T06:37:26.726Z"
+}
