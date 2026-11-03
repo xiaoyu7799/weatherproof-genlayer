@@ -1,0 +1,55 @@
+{
+  "network": "Stable Studionet",
+  "chainId": 61999,
+  "rpcUrl": "https://studio.genlayer.com/api",
+  "contractAddress": "0x8dd15ee51a226C459d95c9a7Bbb4f73d6f8e38B9",
+  "contractFile": "contracts/weatherproof_v2.py",
+  "contractSha256": "649b7d54b294ba57a239b3ccb0b5ba1611ee2f398b569d1a81f3ed5989dda04f",
+  "deployTxHash": "0x49fe439b8f7363777b7e9e96925f5bba0cbb213240dfb0add3cff5b561366387",
+  "explorer": "https://explorer-studio.genlayer.com/address/0x8dd15ee51a226C459d95c9a7Bbb4f73d6f8e38B9",
+  "flowAccount": "0x6c54faCe24df2303e4D9753625e11a65dB382d31",
+  "claims": {
+    "trueClaim": {
+      "id": 0,
+      "createTxHash": "0x9ed068112d4c1cb98a0fce770b5a4b4b09f39b14233e52ce08555b072b71cce0",
+      "settleTxHash": "0x71f0f406c60347e23e76792e62be52e1adc6cbc960f62c785d4a5b1c108da049",
+      "claim": {
+        "id": 0,
+        "location_name": "London",
+        "latitude": "51.5074",
+        "longitude": "-0.1278",
+        "date": "2025-10-01",
+        "metric": "precipitation_sum",
+        "operator": ">=",
+        "threshold": "0.1",
+        "purpose": "milestone demo true",
+        "requester": "0x6c54faCe24df2303e4D9753625e11a65dB382d31",
+        "status": "settled_true",
+        "measured_value": 0.1,
+        "source_url": "https://archive-api.open-meteo.com/v1/archive?latitude=51.5074&longitude=-0.1278&start_date=2025-10-01&end_date=2025-10-01&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,weather_code,wind_speed_10m_max&timezone=GMT"
+      }
+    },
+    "falseClaim": {
+      "id": 1,
+      "createTxHash": "0x7f22056f8b7ec52d7f76014fb5cb8b565d73868dffe6b1b71b145e949818908e",
+      "settleTxHash": "0xe4b2b12ebb4c948a8d65a0b5307b78306a73ec74623d6c1abd0001a34dd03db3",
+      "claim": {
+        "id": 1,
+        "location_name": "London",
+        "latitude": "51.5074",
+        "longitude": "-0.1278",
+        "date": "2025-10-01",
+        "metric": "precipitation_sum",
+        "operator": ">=",
+        "threshold": "10",
+        "purpose": "milestone demo false",
+        "requester": "0x6c54faCe24df2303e4D9753625e11a65dB382d31",
+        "status": "settled_false",
+        "measured_value": 0.1,
+        "source_url": "https://archive-api.open-meteo.com/v1/archive?latitude=51.5074&longitude=-0.1278&start_date=2025-10-01&end_date=2025-10-01&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,weather_code,wind_speed_10m_max&timezone=GMT"
+      }
+    }
+  },
+  "scope": "Milestone demo loop only. All writes used an ephemeral in-memory script account on gasless Studionet; no adoption claim is made and no real user data is involved. The demo day (London 2025-10-01) is the same day v1 record #0 verified.",
+  "checkedAt": "2026-11-03T08:23:56.035Z"
+}

@@ -1,0 +1,14 @@
+{
+  "network": "Stable Studionet",
+  "chainId": 61999,
+  "rpcUrl": "https://studio.genlayer.com/api",
+  "explorer": "https://explorer-studio.genlayer.com/address/0x304ba2D879EaC48bB0030cB0A196499d34c15137",
+  "studio": "https://studio.genlayer.com/?import-contract=0x304ba2D879EaC48bB0030cB0A196499d34c15137",
+  "contractAddress": "0x304ba2D879EaC48bB0030cB0A196499d34c15137",
+  "deployTxHash": "0xbb0e84abee4ac80da88c72bbc02c428c2770a1eaa525bf6ab245e85e410638cd",
+  "deployer": "0xFFA5393f2a765696116E6f76A995A7b73647A62c",
+  "contractFile": "contracts/weatherproof.py",
+  "contractSha256": "d8796fb7969aec2304029a820d5789f2aeb631eb2fa69fb897de607678055e50",
+  "deployedAt": "2026-10-31T06:35:59.928Z",
+  "receiptStatus": "FINALIZED"
+}

@@ -2,13 +2,18 @@
   "network": "Stable Studionet",
   "chainId": 61999,
   "rpcUrl": "https://studio.genlayer.com/api",
-  "explorer": "https://explorer-studio.genlayer.com/address/0x304ba2D879EaC48bB0030cB0A196499d34c15137",
-  "studio": "https://studio.genlayer.com/?import-contract=0x304ba2D879EaC48bB0030cB0A196499d34c15137",
-  "contractAddress": "0x304ba2D879EaC48bB0030cB0A196499d34c15137",
-  "deployTxHash": "0xbb0e84abee4ac80da88c72bbc02c428c2770a1eaa525bf6ab245e85e410638cd",
-  "deployer": "0xFFA5393f2a765696116E6f76A995A7b73647A62c",
-  "contractFile": "contracts/weatherproof.py",
-  "contractSha256": "d8796fb7969aec2304029a820d5789f2aeb631eb2fa69fb897de607678055e50",
-  "deployedAt": "2026-10-31T06:35:59.928Z",
-  "receiptStatus": "FINALIZED"
+  "explorer": "https://explorer-studio.genlayer.com/address/0x8dd15ee51a226C459d95c9a7Bbb4f73d6f8e38B9",
+  "studio": "https://studio.genlayer.com/?import-contract=0x8dd15ee51a226C459d95c9a7Bbb4f73d6f8e38B9",
+  "contractAddress": "0x8dd15ee51a226C459d95c9a7Bbb4f73d6f8e38B9",
+  "deployTxHash": "0x49fe439b8f7363777b7e9e96925f5bba0cbb213240dfb0add3cff5b561366387",
+  "deployer": "0x1e48AA17250Fcf3734B3AB664503a300a2699382",
+  "contractFile": "contracts/weatherproof_v2.py",
+  "contractSha256": "649b7d54b294ba57a239b3ccb0b5ba1611ee2f398b569d1a81f3ed5989dda04f",
+  "deployedAt": "2026-11-03T08:21:05.197Z",
+  "receiptStatus": "FINALIZED",
+  "previousVersion": {
+    "contractFile": "contracts/weatherproof.py",
+    "record": "deployment-v1.json",
+    "note": "v1 attestation records remain readable on the v1 contract"
+  }
 }
