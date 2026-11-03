@@ -3,13 +3,30 @@
 **Was it really raining that day? Prove it, on-chain.**
 
 🌐 **Live site:** https://xiaoyu7799.github.io/weatherproof-genlayer/
-🔗 **Contract (Stable Studionet):** https://explorer-studio.genlayer.com/address/0x304ba2D879EaC48bB0030cB0A196499d34c15137
+🔗 **Contract v2 (Stable Studionet):** https://explorer-studio.genlayer.com/address/0x8dd15ee51a226C459d95c9a7Bbb4f73d6f8e38B9
 
 WeatherProof creates a neutral, shareable record of past weather. Pick a place
 and a past date, and GenLayer validators independently fetch the same day
 from the Open-Meteo Archive and must agree on the verdict before it is
 stored on-chain. A screenshot of a weather app proves nothing — anyone can
 edit it. This record cannot be edited by one person alone.
+
+## What's new in v2: weather claims
+
+v1 answered "what was the weather?" v2 answers the question people
+actually dispute: **"did the weather condition hold?"** A claim states a
+metric, an operator and a threshold — e.g. "precipitation in London on
+2025-10-01 was ≥ 0.1 mm" — and validators settle it on-chain to a single
+`settled_true` or `settled_false`. Claims reuse v1's fetch and tolerance
+agreement exactly; the only new step is a deterministic comparison of the
+agreed measured value against the threshold. A failed fetch or validator
+disagreement leaves the claim `pending` (fail-closed, retryable), and a
+settled claim is never overwritten. See [`docs/claims.md`](docs/claims.md)
+for the full mechanism.
+
+The v2 contract also keeps the whole v1 attestation flow working
+unchanged, and the v1 contract's records remain readable (see
+"Contract" below).
 
 Typical uses: outdoor events, photo shoots, farm work, delivery and site
 visits, sports fixtures — anywhere two people later disagree about whether
@@ -54,11 +71,23 @@ No other network is used. Do not point this project at another chain.
 
 ## Contract
 
-- Source: [`contracts/weatherproof.py`](contracts/weatherproof.py)
-- Deployed address, deploy tx and evidence: see [`deployment.json`](deployment.json)
-  and [`evidence.json`](evidence.json) once deployment has run.
-- Studio: `https://studio.genlayer.com/?import-contract=<address>`
-- Explorer: `https://explorer-studio.genlayer.com/address/<address>`
+- Current contract (v2): source [`contracts/weatherproof_v2.py`](contracts/weatherproof_v2.py),
+  address `0x8dd15ee51a226C459d95c9a7Bbb4f73d6f8e38B9`, deploy tx
+  `0x49fe439b8f7363777b7e9e96925f5bba0cbb213240dfb0add3cff5b561366387` (FINALIZED).
+  Deploy record: [`deployment.json`](deployment.json); claims loop evidence:
+  [`evidence-v2.json`](evidence-v2.json).
+- Earlier contract (v1): source [`contracts/weatherproof.py`](contracts/weatherproof.py),
+  address `0x304ba2D879EaC48bB0030cB0A196499d34c15137`. Its records remain
+  readable; v2 never rewrites them. v1 deploy record:
+  [`deployment-v1.json`](deployment-v1.json); v1 flow evidence:
+  [`evidence.json`](evidence.json).
+- Studio: `https://studio.genlayer.com/?import-contract=0x8dd15ee51a226C459d95c9a7Bbb4f73d6f8e38B9`
+- Explorer: `https://explorer-studio.genlayer.com/address/0x8dd15ee51a226C459d95c9a7Bbb4f73d6f8e38B9`
+
+File mapping: `deployment.json` always holds the CURRENT contract (the
+GitHub Pages workflow reads the contract address from it at build time);
+`deployment-v1.json` is the preserved v1 record. `evidence.json` is the v1
+flow; `evidence-v2.json` is the v2 claims loop.
 
 ### API
 
@@ -68,6 +97,8 @@ Writes:
 | --- | --- | --- |
 | `request_attestation` | `location_name`, `latitude`, `longitude` (strings), `date` (YYYY-MM-DD), `purpose` | new attestation id (`u256`) |
 | `verify_attestation` | `attestation_id` | verified record as JSON (only after validator agreement) |
+| `create_claim` (v2) | `location_name`, `latitude`, `longitude`, `date`, `metric` (one of `precipitation_sum`, `temperature_2m_max`, `temperature_2m_min`, `wind_speed_10m_max`), `operator` (`>=` or `<=`), `threshold` (string), `purpose` | new claim id (`u256`); per-owner cap 32 |
+| `settle_claim` (v2) | `claim_id` | settled claim as JSON (`settled_true` / `settled_false` with `measured_value`), only after validator agreement |
 
 Views:
 
@@ -76,6 +107,9 @@ Views:
 | `get_attestation` | `attestation_id` | record as JSON |
 | `get_count` | — | number of attestations |
 | `list_attestations` | `offset`, `limit` (1–20) | records as JSON, oldest first |
+| `get_claim` (v2) | `claim_id` | claim as JSON |
+| `get_claim_count` (v2) | — | number of claims |
+| `list_claims` (v2) | `offset`, `limit` (1–20) | claims as JSON, oldest first |
 
 Input bounds: location 2–80 chars, purpose 2–120 chars, latitude −90…90,
 longitude −180…180, date 1940-01-01…2100-12-31 in YYYY-MM-DD form. The
@@ -113,15 +147,19 @@ It never presents a test-account transaction as wallet-signed, and it
 never fakes a result. Reading existing attestations still works without
 any wallet.
 
-**Experience.** The site is designed to be browsed, not just used:
-four languages (English, 中文, 日本語, 한국어) switchable in the header
-and remembered; an ambient rain sound generated in the browser with the
-Web Audio API, off by default and only started by the user's toggle,
+**Experience.** The site is a meteorological evidence ledger: archival
+paper and ink, stamped verdicts (TRUE in verdigris, FALSE in iron red,
+pending in ochre), tabular ledgers, monospaced coordinates and dates.
+Two languages (English, 中文) switchable in the header and remembered;
+an ambient rain sound generated in the browser with the Web Audio API,
+never autoplaying on load, auto-enabled on the first click anywhere
+except the sound button, never auto-re-enabled after a manual close,
 with a short chime when a transaction reaches FINALIZED; an opening
-splash animation once per session (click anywhere to skip); content
-that pops in as you scroll; and mouse playfulness on fine pointers —
-a cursor glow, hero parallax, card tilt and magnetic buttons — all
-disabled for touch devices and reduced-motion users.
+splash once per session (click anywhere to skip); scroll-reveal content;
+claim lifecycle animation (file → pending → settling → stamped verdict);
+and mouse playfulness on fine pointers — a cursor glow, card tilt and
+magnetic actions — all disabled for touch devices and reduced-motion
+users.
 
 ### Run it locally
 
@@ -155,19 +193,34 @@ npm run flow
 # writes evidence.json: request tx, verify tx, final status, verified record
 ```
 
+For v2 (deploy + claims loop, TRUE and FALSE from the same known day):
+
+```bash
+node scripts/deploy-v2.mjs
+# writes deployment.json (v2), preserving the v1 record as deployment-v1.json
+node scripts/flow-v2.mjs
+# writes evidence-v2.json: create/settle txs, final statuses, settled claims
+```
+
 The private key is never written to `deployment.json` or `evidence.json`.
 
 ## Repository layout
 
 ```
-contracts/weatherproof.py   Intelligent Contract (GenVM, Python)
-frontend/                   Vite + React app (genlayer-js 1.1.8, Studionet only)
-scripts/deploy.mjs          Deploy to Studionet, write deployment.json
-scripts/flow.mjs            Request → verify → read back, write evidence.json
-docs/                       Consensus design, limits, submission copy
-assets/logo.svg             Project logo
-deployment.json             Filled in by scripts/deploy.mjs (not hand-edited)
-evidence.json               Filled in by scripts/flow.mjs (not hand-edited)
+contracts/weatherproof.py     v1 Intelligent Contract (GenVM, Python)
+contracts/weatherproof_v2.py  v2 contract: v1 flow + weather claims
+tests/test_weatherproof_v2.py v2 tests (16 tests, plain python3)
+frontend/                     Vite + React app (genlayer-js 1.1.8, Studionet only)
+scripts/deploy.mjs            Deploy v1 to Studionet, write deployment.json
+scripts/flow.mjs              Request → verify → read back, write evidence.json
+scripts/deploy-v2.mjs         Deploy v2, preserve v1 record, write deployment.json
+scripts/flow-v2.mjs           Claims loop (TRUE + FALSE), write evidence-v2.json
+docs/                         Consensus design, claims mechanism, limits
+assets/logo.svg               Project logo
+deployment.json               CURRENT contract record (v2; read by the Pages workflow)
+deployment-v1.json            Preserved v1 record
+evidence.json                 v1 flow evidence
+evidence-v2.json              v2 claims loop evidence
 ```
 
 ## Honest limits
@@ -185,10 +238,15 @@ evidence.json               Filled in by scripts/flow.mjs (not hand-edited)
 
 ## Tests / checks done
 
-- Python syntax check: `python3 -m py_compile contracts/weatherproof.py`
-- Frontend build: `cd frontend && npm run build`
-- Live flow on Stable Studionet: `npm run deploy && npm run flow`
+- Python syntax check: `python3 -m py_compile contracts/weatherproof_v2.py`
+- v2 tests: `python3 tests/test_weatherproof_v2.py` (16 tests: claim
+  validation, TRUE/FALSE settlement, fail-closed, disagreement, v1
+  regression)
+- Live flow on Stable Studionet (v1): `npm run deploy && npm run flow`
   (see `evidence.json` for the recorded hashes and final status)
+- Live claims loop on Stable Studionet (v2): `node scripts/deploy-v2.mjs
+  && node scripts/flow-v2.mjs` (see `evidence-v2.json`: deploy +
+  create/settle TRUE + create/settle FALSE, all FINALIZED)
 
 ## License
 
