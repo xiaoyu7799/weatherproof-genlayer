@@ -6,7 +6,16 @@ export const CHAIN_ID = 61999
 export const CHAIN_ID_HEX = '0xf22f'
 export const RPC_URL = 'https://studio.genlayer.com/api'
 export const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS || ''
+// v1 contract: read-only historical archive. v2 never rewrites v1 records.
+export const V1_CONTRACT_ADDRESS = '0x304ba2D879EaC48bB0030cB0A196499d34c15137'
 export const EXPLORER = 'https://explorer-studio.genlayer.com'
+
+export const METRICS = [
+  { id: 'precipitation_sum', unit: 'mm' },
+  { id: 'temperature_2m_max', unit: '°C' },
+  { id: 'temperature_2m_min', unit: '°C' },
+  { id: 'wind_speed_10m_max', unit: 'km/h' },
+]
 
 export function explorerAddress(addr) { return `${EXPLORER}/address/${addr}` }
 export function explorerTx(hash) { return `${EXPLORER}/tx/${hash}` }
